@@ -1,4 +1,9 @@
+import os
 import streamlit as st
+
+if "GROQ_API_KEY" in st.secrets:
+    os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
+
 
 from core.meal_planner_agent import generate_menu_plan
 
