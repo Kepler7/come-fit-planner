@@ -1,7 +1,6 @@
 import os
 import streamlit as st
 import base64
-from st_social_media_links import SocialMediaIcons
 
 # -----------------------------
 #  FONDO DE LA APLICACIÓN
