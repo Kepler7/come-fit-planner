@@ -4,3 +4,5 @@ agno
 python-dotenv
 openai
 groq
+sqlalchemy
+aiosqlite

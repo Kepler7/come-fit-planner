@@ -1,8 +1,8 @@
-# core/planner.py
 from __future__ import annotations
 
 from typing import List, Dict, Any, Literal
 from core.menu_loader import load_menu, filter_menu
+
 
 
 MealType = Literal["desayuno", "comida", "cena"]
@@ -18,7 +18,6 @@ def _choose_closest_by_calories(df, target_calories: float, max_options: int = 5
 
     df_cal = df.dropna(subset=["calories"])
     if df_cal.empty:
-        # No hay calorías definidas, devolvemos algunos primeros
         return df.head(max_options).to_dict(orient="records")
 
     df_cal = df_cal.copy()
@@ -34,23 +33,19 @@ def _get_meal_distribution(objective: str) -> Dict[MealType, float]:
     """
     obj = objective.lower()
 
-    # Valores aproximados, puedes afinarlos
     if "déficit" in obj or "deficit" in obj:
-        # más fuerte en la mañana y mediodía, cena ligera
         return {
             "desayuno": 0.35,
             "comida": 0.40,
             "cena": 0.25,
         }
     elif "volumen" in obj:
-        # un poco más balanceado pero cargado a comida
         return {
             "desayuno": 0.30,
             "comida": 0.40,
             "cena": 0.30,
         }
     else:
-        # mantenimiento u otros
         return {
             "desayuno": 0.30,
             "comida": 0.40,
@@ -81,7 +76,6 @@ def precompute_daily_suggestions(
     }
 
     def _filter_for_meal(meal_type: MealType):
-        # Filtrar por tipo de comida + restricciones + alergias
         must_have = restrictions or []
         avoid = allergies or []
         base = filter_menu(
