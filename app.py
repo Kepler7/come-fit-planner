@@ -1,105 +1,91 @@
 import os
 import streamlit as st
-
-if "GROQ_API_KEY" in st.secrets:
-    os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
-
+import base64
 
 from core.meal_planner_agent import generate_menu_plan
+from core.database import init_database, SessionLocal, MenuGenerated
+from core.auth import register_user, login_user, is_logged_in, logout
 
-st.set_page_config(page_title="Come Fit Planner", page_icon="🥗", layout="centered")
+st.set_page_config(page_title="Come Fit Planner", page_icon="🥗")
 
-st.title("Come Fit - Planificador de Menú Diario 🥗")
+def load_bg_base64():
+    bg_path = os.path.join("data", "fondo.png")
+    if not os.path.exists(bg_path):
+        return ""
+    with open(bg_path, "rb") as img:
+        return base64.b64encode(img.read()).decode()
 
-st.markdown(
-    """
-Bienvenido al planificador de menú de **Come Fit**.
 
-Ingresa tus objetivos, calorías y restricciones, y te propondremos opciones de menú usando **solo nuestros platillos**.
-"""
-)
+bg_image = load_bg_base64()
 
-# --- Selección de objetivo ---
-objective = st.selectbox(
-    "¿Cuál es tu objetivo?",
-    ["déficit calórico", "mantenimiento", "volumen"],
-    index=0,
-)
+st.markdown(f"""
+<style>
+.stApp {{
+    background-image: url("data:image/png;base64,{bg_image}");
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}}
+</style>
+""", unsafe_allow_html=True)
 
-# --- Calorías por día ---
-total_calories = st.number_input(
-    "Calorías objetivo por día (aproximado)",
-    min_value=800,
-    max_value=4000,
-    value=1600,
-    step=50,
-)
+init_database()
 
-# --- Número de comidas ---
-meals_per_day = st.selectbox(
-    "Número de comidas al día",
-    [3, 4],
-    index=0,
-    help="Por ahora usamos desayuno, comida y cena. Más adelante podemos agregar colaciones.",
-)
 
-st.subheader("Restricciones nutricionales (elige lo que aplique)")
+with st.sidebar:
+    st.header("🍽️ Menú")
 
-col1, col2 = st.columns(2)
+    if is_logged_in():
+        st.success(f"Sesión iniciada como: {st.session_state.get('email')}")
 
-with col1:
-    r_control_calorico = st.checkbox("Control calórico / Déficit", value=True)
-    r_bajo_sodio = st.checkbox("Bajo en sodio")
-    r_cero_azucar = st.checkbox("Cero azúcar / Apto diabéticos")
+        if st.button("Cerrar sesión"):
+            logout()
+            st.experimental_rerun()
 
-with col2:
-    r_cero_gluten = st.checkbox("Cero gluten")
-    r_post_op = st.checkbox("Post-operatorio")
-    r_otros = st.text_input(
-        "Otros tags (opcional, separados por coma)",
-        help="Ejemplo: vegano,bajo_calorias",
-    )
 
-restrictions = []
-if r_control_calorico:
-    restrictions.append("control_calorico")
-if r_bajo_sodio:
-    restrictions.append("bajo_sodio")
-if r_cero_azucar:
-    restrictions.append("cero_azucar")
-if r_cero_gluten:
-    restrictions.append("cero_gluten")
-if r_post_op:
-    restrictions.append("post_operatorio")
-if r_otros.strip():
-    extras = [t.strip() for t in r_otros.split(",") if t.strip()]
-    restrictions.extend(extras)
+    option = st.selectbox("Opciones", ["Iniciar sesión", "Registrarse", "Instagram", "WhatsApp"])
 
-st.subheader("Alergias o cosas que quieres evitar")
+    if option == "Instagram":
+        st.markdown("[Ir a Instagram](https://www.instagram.com/comesano_comefit)")
+    elif option == "WhatsApp":
+        st.markdown("[Contactar por WhatsApp](https://wa.me/5213349776792)")
 
-c_no_lacteos = st.checkbox("Evitar lácteos")
-c_no_gluten = st.checkbox("Evitar gluten (además del tag)")
-c_no_nuez = st.checkbox("Evitar nueces / frutos secos")
-c_otros = st.text_input(
-    "Otros tags a evitar (opcional, separados por coma)",
-    help="Ejemplo: alto_grasa",
-)
+    if option == "Registrarse":
+        st.subheader("Crear cuenta")
+        email = st.text_input("Correo")
+        password = st.text_input("Contraseña", type="password")
 
-allergies = []
-if c_no_lacteos:
-    allergies.append("lacteo")
-if c_no_gluten:
-    allergies.append("gluten")
-if c_no_nuez:
-    allergies.append("nuez")
-if c_otros.strip():
-    extras_avoid = [t.strip() for t in c_otros.split(",") if t.strip()]
-    allergies.extend(extras_avoid)
+        if st.button("Crear cuenta"):
+            ok, msg = register_user(email, password)
+            st.success(msg) if ok else st.error(msg)
 
-st.markdown("---")
+    if option == "Iniciar sesión":
+        st.subheader("Acceso")
+        email = st.text_input("Correo", key="login_email")
+        password = st.text_input("Contraseña", type="password", key="login_pass")
+        
+        if st.button("Entrar"):
+            if login_user(email, password):
+                st.success("Sesión iniciada")
+                st.rerun()
+            else:
+                st.error("Credenciales incorrectas")
+
+st.title("🍏 Generador de menú Come Fit")
+
+total_calories = st.number_input("Calorías totales por día", min_value=1200, max_value=5000, value=2000)
+objective = st.selectbox("Objetivo", ["Bajar de peso", "Mantener", "Subir masa"])
+restrictions = st.text_input("Restricciones (opcional)")
+allergies = st.text_input("Alergias (opcional)")
+meals_per_day = st.selectbox("Comidas por día", [3, 4, 5])
+
 
 if st.button("Generar menú Come Fit"):
-    with st.spinner("Generando tu menú personalizado..."):
+    if not is_logged_in():
+        st.warning("Debes iniciar sesión para generar tu menú.")
+        st.stop()
+
+    with st.spinner("Generando menú..."):
         try:
             plan_text = generate_menu_plan(
                 total_calories=total_calories,
@@ -109,12 +95,14 @@ if st.button("Generar menú Come Fit"):
                 meals_per_day=meals_per_day,
             )
 
-            st.subheader("Opciones de menú sugeridas")
+            db = SessionLocal()
+            new_menu = MenuGenerated(user_id=st.session_state["user_id"], menu_text=plan_text)
+            db.add(new_menu)
+            db.commit()
+            db.close()
+
+            st.subheader("Menú generado")
             st.markdown(plan_text)
 
-            st.info(
-                "Estas son sugerencias basadas en el menú de Come Fit y tus objetivos. "
-                "Puedes ajustar junto con nuestro equipo según tus necesidades específicas."
-            )
         except Exception as e:
-            st.error(f"Ocurrió un error al generar el menú: {e}")
+            st.error(f"Error: {e}")

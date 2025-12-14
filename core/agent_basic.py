@@ -1,4 +1,3 @@
-# core/agent_basic.py
 from dotenv import load_dotenv
 from agno.agent import Agent
 from agno.models.groq import Groq
@@ -24,8 +23,6 @@ def test_agent():
         "para déficit calórico de unas 1600 kcal en 3 comidas."
     )
     run = agent.run(prompt)
-    # Según la versión de agno, run puede devolver un objeto o string.
-    # Lo más común es que tenga .content:
     try:
         print(run.content)
     except AttributeError:

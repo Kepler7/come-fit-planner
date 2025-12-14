@@ -1,4 +1,3 @@
-# core/meal_planner_agent.py
 from __future__ import annotations
 
 from typing import List, Dict, Any
@@ -9,13 +8,10 @@ from agno.models.groq import Groq
 from agno.models.openai import OpenAIChat
 from agno.tools import tool
 
-from core.menu_loader import load_menu, filter_menu
-from core.planner import precompute_daily_suggestions  # <-- NUEVO IMPORT
-
-# Cargamos variables de entorno
+from core.menu_loader import load_menu, filter_menu  
+from core.planner import precompute_daily_suggestions
 load_dotenv()
 
-# Cargamos el menú una sola vez
 MENU_DF = load_menu()
 
 
@@ -41,7 +37,6 @@ def get_menu_options(
         avoid_tags=avoid if avoid else None,
     )
 
-    # Convertimos a una lista de dicts sencillos
     records = filtered.to_dict(orient="records")
     return records
 
@@ -50,7 +45,6 @@ def build_meal_planner_agent() -> Agent:
     """
     Crea el agente nutriólogo de Come Fit que sabe usar get_menu_options.
     """
-    #model = OpenAIChat(id="gpt-4o-mini")  # puedes cambiar el modelo si quieres
 
     agent = Agent(
         model=Groq(id="llama-3.3-70b-versatile"),
@@ -99,7 +93,6 @@ def generate_menu_plan(
     """
     agent = build_meal_planner_agent()
 
-    # 1) Precalcular sugerencias por tipo de comida basadas en calorías
     precomputed = precompute_daily_suggestions(
         total_calories=total_calories,
         meals_per_day=meals_per_day,
@@ -108,7 +101,6 @@ def generate_menu_plan(
         objective=objective,
     )
 
-    # Lo convertimos a un texto legible para el modelo
     suggestions = precomputed["suggestions"]
     per_meal_targets = precomputed["per_meal_targets"]
     distribution = precomputed["distribution"]
@@ -164,7 +156,6 @@ def generate_menu_plan(
 
     run = agent.run(user_message)
 
-    # Dependiendo de la versión de agno, puede ser .content o string
     try:
         return run.content
     except AttributeError:
@@ -172,12 +163,12 @@ def generate_menu_plan(
 
 
 if __name__ == "__main__":
-    # Prueba rápida desde la terminal:
+
     example_plan = generate_menu_plan(
         total_calories=1600,
         objective="déficit calórico",
         restrictions=["control_calorico"],
-        allergies=["nuez"],  # aquí podrías usar algún tag que quieras evitar
+        allergies=["nuez"], 
         meals_per_day=3,
     )
     print(example_plan)

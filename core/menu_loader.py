@@ -1,24 +1,29 @@
-from pathlib import Path
+import os
 import pandas as pd
-from typing import List, Optional
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-MENU_PATH = BASE_DIR / "data" / "menu_comefit_enriched.csv"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, "data")
+MENU_PATH = os.path.join(DATA_DIR, "menu_comefit_enriched.csv")
 
-def load_menu() -> pd.DataFrame:
-    """Carga el menú de Come Fit desde el CSV."""
+
+def load_menu():
+    print("Cargando CSV desde:", MENU_PATH)
     df = pd.read_csv(MENU_PATH)
-    # Aseguramos que tags es string sin espacios extra
-    df["tags"] = df["tags"].fillna("").astype(str).str.replace(" ", "")
+
+    if "tags" in df.columns:
+        df["tags"] = df["tags"].fillna("").apply(lambda x: [t.strip() for t in str(x).split(",") if t.strip()])
+
     return df
 
-def filter_menu(
-    df: pd.DataFrame,
-    meal_type: Optional[str] = None,
-    must_have_tags: Optional[List[str]] = None,
-    avoid_tags: Optional[List[str]] = None,
-) -> pd.DataFrame:
-    """Filtra el menú por tipo de comida y tags."""
+
+def filter_menu(df, meal_type=None, must_have_tags=None, avoid_tags=None):
+    """
+    Filtro real basado en:
+    - meal_type (columna en CSV)
+    - must_have_tags (lista)
+    - avoid_tags (lista)
+    """
+
     filtered = df.copy()
 
     if meal_type:
@@ -26,25 +31,13 @@ def filter_menu(
 
     if must_have_tags:
         for tag in must_have_tags:
-            filtered = filtered[filtered["tags"].str.contains(tag, case=False, na=False)]
+            filtered = filtered[filtered["tags"].apply(lambda t: tag in t)]
 
     if avoid_tags:
         for tag in avoid_tags:
-            filtered = filtered[~filtered["tags"].str.contains(tag, case=False, na=False)]
+            filtered = filtered[filtered["tags"].apply(lambda t: tag not in t)]
 
     return filtered
 
 
-if __name__ == "__main__":
-    # Pequeña prueba rápida
-    df_menu = load_menu()
-    print("Primeros platillos del menú:")
-    print(df_menu.head())
 
-    print("\nDesayunos para diabético (tag 'diabetico' o 'cero_azucar'):")
-    df_desayunos = filter_menu(
-        df_menu,
-        meal_type="desayuno",
-        must_have_tags=["cero_azucar"],
-    )
-    print(df_desayunos)
